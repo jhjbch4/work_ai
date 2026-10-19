@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>긴급 발주 전용 관리 (order.html)</title>
+  <!-- Tailwind CSS & React Dependencies -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const URGENT_ITEMS = [
+      { id: 'INV-1001', name: '고성능 서버 Rack Mount 2U', category: 'IT 장비', stock: 12, minStock: 15, unitPrice: 3500000, vendor: '(주)델테크놀로지스', vendorContact: '02-1234-5678', vendorEmail: 'orders@dell-tech.co.kr' },
+      { id: 'INV-1003', name: '스마트 오피스 모니터 27인치', category: '사무기기', stock: 8, minStock: 10, unitPrice: 420000, vendor: 'LG전자 B2B총판', vendorContact: '02-3456-7890', vendorEmail: 'b2b@lge-display.com' },
+      { id: 'INV-1008', name: '네트워크 스위치 48포트 PoE', category: 'IT 장비', stock: 3, minStock: 8, unitPrice: 2100000, vendor: '(주)아루바네트웍스', vendorContact: '02-8901-2345', vendorEmail: 'poe_support@aruba.co.kr' },
+      { id: 'INV-1011', name: '카트리지 토너 세트 (K/C/M/Y)', category: '소모품', stock: 4, minStock: 10, unitPrice: 320000, vendor: '캐논코리아 유통', vendorContact: '02-1122-3344', vendorEmail: 'canon_toner@canon-bs.co.kr' }
+    ];
+
+    function OrderApp() {
+      const [quantities, setQuantities] = useState({
+        'INV-1001': 18,
+        'INV-1003': 12,
+        'INV-1008': 13,
+        'INV-1011': 16
+      });
+      const [submitted, setSubmitted] = useState(false);
+
+      const handleQuantityChange = (id, value) => {
+        const val = Math.max(1, parseInt(value) || 0);
+        setQuantities(prev => ({ ...prev, [id]: val }));
+      };
+
+      const totalCost = URGENT_ITEMS.reduce((sum, item) => sum + ((quantities[item.id] || 0) * item.unitPrice), 0);
+
+      const formatKRW = (amount) => {
+        return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
+      };
+
+      const handleSubmit = () => {
+        setSubmitted(true);
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 2000);
+      };
+
+      return (
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          <header className="flex items-center justify-between border-b border-slate-800 pb-5">
+            <div className="flex items-center gap-3">
+              <a href="index.html" className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl border border-slate-700 transition">
+                ← 대시보드로 돌아가기
+              </a>
+              <div>
+                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  🛒 긴급 발주 전용 상세 관리페이지 (order.html)
+                </h1>
+                <p className="text-xs text-slate-400 mt-0.5">안전재고 미달 품목 ({URGENT_ITEMS.length}건) 거래처 연락처 및 발주 수량 작성</p>
+              </div>
+            </div>
+          </header>
+
+          {submitted ? (
+            <div className="bg-slate-800 border border-emerald-500/50 p-12 rounded-2xl text-center space-y-3 max-w-lg mx-auto my-12">
+              <div className="text-4xl">✅</div>
+              <h2 className="text-xl font-bold text-white">발주서 전송이 완료되었습니다!</h2>
+              <p className="text-xs text-slate-300">메인 대시보드(index.html)로 자동 이동합니다...</p>
+            </div>
+          ) : (
+            <main className="space-y-4">
+              <div className="bg-rose-950/40 border border-rose-500/40 p-4 rounded-xl flex justify-between items-center text-xs text-rose-300">
+                <div>
+                  <span className="font-bold text-sm text-rose-200 block">⚠️ 긴급 재고 소진 경고</span>
+                  <span>아래 물품은 안전 재고 기준 이하입니다. 지정 거래처 정보 확인 후 발주 수량을 입력하세요.</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 block">총 발주 예상 금액</span>
+                  <span className="text-lg font-extrabold text-white">{formatKRW(totalCost)}</span>
+                </div>
+              </div>
+
+              {URGENT_ITEMS.map((item) => {
+                const qty = quantities[item.id] || 0;
+                return (
+                  <div key={item.id} className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-lg space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-3">
+                      <div>
+                        <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-0.5 rounded">{item.id}</span>
+                        <span className="text-xs text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded ml-2">{item.category}</span>
+                        <h3 className="text-lg font-bold text-white mt-1">{item.name}</h3>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-rose-400 font-bold">현재수량: {item.stock}개 / 안전재고: {item.minStock}개</span>
+                        <div className="text-xs text-slate-300">개당 단가: {formatKRW(item.unitPrice)}</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {/* Vendor Contact */}
+                      <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-1">
+                        <div className="text-indigo-400 font-bold mb-1">📞 지정 거래처 연락처 정보</div>
+                        <div className="text-slate-300">거래처명: <strong className="text-white">{item.vendor}</strong></div>
+                        <div className="text-slate-300">대표 전화: <a href={`tel:${item.vendorContact}`} className="text-indigo-300">{item.vendorContact}</a></div>
+                        <div className="text-slate-300">담당 이메일: <a href={`mailto:${item.vendorEmail}`} className="text-indigo-300">{item.vendorEmail}</a></div>
+                      </div>
+
+                      {/* Order Input */}
+                      <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700 space-y-2 flex flex-col justify-between">
+                        <label className="font-bold text-slate-200">📝 발주 수량 입력 폼 (개)</label>
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="number"
+                            min="1"
+                            value={qty}
+                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold text-sm focus:outline-none"
+                          />
+                          <div className="text-right shrink-0 min-w-[100px]">
+                            <span className="text-[10px] text-slate-400 block">소계 금액</span>
+                            <span className="text-sm font-extrabold text-emerald-400">{formatKRW(qty * item.unitPrice)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="bg-slate-800 border border-slate-700 p-5 rounded-2xl flex justify-between items-center shadow-xl">
+                <div>
+                  <span className="text-xs text-slate-400">총 발주 {URGENT_ITEMS.length}건 합계</span>
+                  <div className="text-xl font-extrabold text-white">{formatKRW(totalCost)}</div>
+                </div>
+
+                <button
+                  onClick={handleSubmit}
+                  className="px-6 py-3 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-lg transition"
+                >
+                  🚀 전체 발주서 일괄 전송하기
+                </button>
+              </div>
+            </main>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<OrderApp />);
+  </script>
+</body>
+</html>

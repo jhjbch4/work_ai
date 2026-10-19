@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>통합 물품재고 현황 대시보드</title>
+  <!-- Tailwind CSS & React Core Dependencies -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    const INITIAL_INVENTORY_DATA = [
+      { id: 'INV-1001', name: '고성능 서버 Rack Mount 2U', category: 'IT 장비', stock: 12, minStock: 15, unitPrice: 3500000, lastShippedDays: 12, status: 'urgent', vendor: '(주)델테크놀로지스' },
+      { id: 'INV-1002', name: '기업용 Wi-Fi 6 AP', category: 'IT 장비', stock: 45, minStock: 20, unitPrice: 280000, lastShippedDays: 5, status: 'normal', vendor: '시스코시스템즈 코리아' },
+      { id: 'INV-1003', name: '스마트 오피스 모니터 27인치', category: '사무기기', stock: 8, minStock: 10, unitPrice: 420000, lastShippedDays: 2, status: 'urgent', vendor: 'LG전자 B2B총판' },
+      { id: 'INV-1004', name: '모듈형 Ergonomic 체어', category: '사무가구', stock: 85, minStock: 15, unitPrice: 310000, lastShippedDays: 140, status: 'deadstock', vendor: '시디즈 물류센터' },
+      { id: 'INV-1005', name: '초고속 레이저 복합기', category: '사무기기', stock: 5, minStock: 5, unitPrice: 1850000, lastShippedDays: 18, status: 'normal', vendor: '신도리코 특판부' },
+      { id: 'INV-1006', name: 'USB-C 도킹 스테이션 Pro', category: 'IT 악세서리', stock: 120, minStock: 30, unitPrice: 150000, lastShippedDays: 1, status: 'normal', vendor: '벨킨 코리아' },
+      { id: 'INV-1007', name: '인체공학 스탠딩 모션데스크', category: '사무가구', stock: 32, minStock: 10, unitPrice: 650000, lastShippedDays: 110, status: 'deadstock', vendor: '데스커 B2B사업부' },
+      { id: 'INV-1008', name: '네트워크 스위치 48포트 PoE', category: 'IT 장비', stock: 3, minStock: 8, unitPrice: 2100000, lastShippedDays: 8, status: 'urgent', vendor: '(주)아루바네트웍스' },
+      { id: 'INV-1009', name: '무선 노이즈캔슬링 헤드셋', category: 'IT 악세서리', stock: 64, minStock: 20, unitPrice: 240000, lastShippedDays: 4, status: 'normal', vendor: '자브라 코리아' },
+      { id: 'INV-1010', name: '구형 프로젝터 램프 (보관용)', category: '사무기기', stock: 42, minStock: 5, unitPrice: 180000, lastShippedDays: 210, status: 'deadstock', vendor: '엡손 솔루션즈' },
+      { id: 'INV-1011', name: '카트리지 토너 세트 (K/C/M/Y)', category: '소모품', stock: 4, minStock: 10, unitPrice: 320000, lastShippedDays: 3, status: 'urgent', vendor: '캐논코리아 유통' },
+      { id: 'INV-1012', name: '보안 USB 암호화 메모리 128GB', category: 'IT 악세서리', stock: 95, minStock: 25, unitPrice: 85000, lastShippedDays: 15, status: 'normal', vendor: '샌디스크 프로센터' }
+    ];
+
+    function App() {
+      const [items, setItems] = useState(INITIAL_INVENTORY_DATA);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [selectedCategory, setSelectedCategory] = useState('전체');
+      const [statusFilter, setStatusFilter] = useState('all');
+
+      const metrics = useMemo(() => {
+        const totalItemsCount = items.length;
+        const totalValue = items.reduce((sum, item) => sum + (item.stock * item.unitPrice), 0);
+        const urgentItems = items.filter(item => item.stock < item.minStock || item.status === 'urgent');
+        const deadstockItems = items.filter(item => item.lastShippedDays >= 90 || item.status === 'deadstock');
+
+        return {
+          totalItemsCount,
+          totalValue,
+          totalValueInEon: (totalValue / 100000000).toFixed(2),
+          urgentItemsCount: urgentItems.length,
+          deadstockItemsCount: deadstockItems.length
+        };
+      }, [items]);
+
+      const filteredItems = useMemo(() => {
+        return items.filter(item => {
+          const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                item.id.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesCategory = selectedCategory === '전체' || item.category === selectedCategory;
+          
+          let matchesStatus = true;
+          if (statusFilter === 'urgent') matchesStatus = item.stock < item.minStock || item.status === 'urgent';
+          if (statusFilter === 'deadstock') matchesStatus = item.lastShippedDays >= 90 || item.status === 'deadstock';
+          if (statusFilter === 'normal') matchesStatus = item.stock >= item.minStock && item.lastShippedDays < 90;
+
+          return matchesSearch && matchesCategory && matchesStatus;
+        });
+      }, [items, searchQuery, selectedCategory, statusFilter]);
+
+      const categories = ['전체', ...Array.from(new Set(items.map(i => i.category)))];
+
+      const formatKRW = (amount) => {
+        return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
+      };
+
+      React.useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      return (
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+          {/* Header */}
+          <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                📊 통합 물품재고 현황 대시보드
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">통합_물품재고_현황_추가.xlsx 연동 리포트</p>
+            </div>
+            
+            <a 
+              href="order.html" 
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 transition-all"
+            >
+              🛒 발주 필요 품목 관리 (order.html 이동)
+            </a>
+          </header>
+
+          {/* Key KPI Cards */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div 
+              onClick={() => setStatusFilter('all')}
+              className={`p-5 rounded-2xl bg-slate-800/80 border transition-all cursor-pointer ${
+                statusFilter === 'all' ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-700/60'
+              }`}
+            >
+              <span className="text-xs text-slate-400 font-medium block mb-2">총 관리 품목 수</span>
+              <div className="text-3xl font-extrabold text-white">{metrics.totalItemsCount}<span className="text-sm font-normal text-slate-400"> 개</span></div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/60">
+              <span className="text-xs text-slate-400 font-medium block mb-2">총 재고 자산 평가액</span>
+              <div className="text-3xl font-extrabold text-white">약 {metrics.totalValueInEon}<span className="text-sm font-normal text-slate-400"> 억원</span></div>
+              <span className="text-[11px] text-slate-400 block mt-1">{formatKRW(metrics.totalValue)}</span>
+            </div>
+
+            {/* Direct Link to order.html */}
+            <a 
+              href="order.html" 
+              className="p-5 rounded-2xl bg-slate-800/80 border border-rose-500/80 hover:border-rose-400 shadow-lg shadow-rose-500/10 block transition-all group"
+            >
+              <span className="text-xs text-rose-400 font-bold block mb-2 flex items-center gap-1">
+                ⚠️ 긴급 발주 필요 품목 (order.html 이동)
+              </span>
+              <div className="text-3xl font-extrabold text-rose-400">{metrics.urgentItemsCount}<span className="text-sm font-normal text-slate-400"> 개 품목</span></div>
+              <span className="text-[11px] text-rose-300 group-hover:underline block mt-1">클릭하여 긴급 발주 페이지로 이동 →</span>
+            </a>
+
+            <div 
+              onClick={() => setStatusFilter(statusFilter === 'deadstock' ? 'all' : 'deadstock')}
+              className={`p-5 rounded-2xl bg-slate-800/80 border transition-all cursor-pointer ${
+                statusFilter === 'deadstock' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-slate-700/60'
+              }`}
+            >
+              <span className="text-xs text-amber-400 font-medium block mb-2">⏳ 장기 미출고 악성 재고</span>
+              <div className="text-3xl font-extrabold text-amber-400">{metrics.deadstockItemsCount}<span className="text-sm font-normal text-slate-400"> 개 품목</span></div>
+            </div>
+          </section>
+
+          {/* Search & Filter Control Bar */}
+          <section className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 space-y-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0">
+                <span className="text-xs text-slate-400 mr-2">카테고리:</span>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      selectedCategory === cat ? 'bg-indigo-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                placeholder="품목명 또는 관리 코드 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </section>
+
+          {/* Table */}
+          <section className="bg-slate-800/80 rounded-2xl border border-slate-700/60 overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-slate-700/60 font-bold text-sm text-slate-200">
+              전체 물품 재고 명세표
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-700">
+                  <tr>
+                    <th className="p-3">관리코드</th>
+                    <th className="p-3">품목명</th>
+                    <th className="p-3">카테고리</th>
+                    <th className="p-3 text-right">현재수량</th>
+                    <th className="p-3 text-right">안전재고</th>
+                    <th className="p-3 text-right">단가</th>
+                    <th className="p-3 text-right">평가금액</th>
+                    <th className="p-3 text-center">지정 거래처</th>
+                    <th className="p-3 text-center">상태</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/40">
+                  {filteredItems.map(item => {
+                    const isUrgent = item.stock < item.minStock || item.status === 'urgent';
+                    const isDeadstock = item.lastShippedDays >= 90 || item.status === 'deadstock';
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-700/30">
+                        <td className="p-3 font-mono text-slate-400">{item.id}</td>
+                        <td className="p-3 font-semibold text-white">{item.name}</td>
+                        <td className="p-3 text-slate-300">{item.category}</td>
+                        <td className={`p-3 text-right font-bold ${isUrgent ? 'text-rose-400' : 'text-slate-100'}`}>{item.stock}개</td>
+                        <td className="p-3 text-right text-slate-400">{item.minStock}개</td>
+                        <td className="p-3 text-right text-slate-300">{formatKRW(item.unitPrice)}</td>
+                        <td className="p-3 text-right font-medium text-indigo-300">{formatKRW(item.stock * item.unitPrice)}</td>
+                        <td className="p-3 text-center text-slate-400">{item.vendor}</td>
+                        <td className="p-3 text-center">
+                          {isUrgent && <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full text-[11px] font-bold">⚠️ 안전재고 미달</span>}
+                          {!isUrgent && isDeadstock && <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full text-[11px]">⏳ 장기 미출고</span>}
+                          {!isUrgent && !isDeadstock && <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[11px]">✅ 정상</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
